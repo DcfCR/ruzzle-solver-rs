@@ -1,22 +1,21 @@
 use std::ops::Index;
 use std::fmt;
-use std::str::FromStr;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-struct BoardIndex<const W: usize, const H: usize> {
+pub struct BoardIndex<const W: usize, const H: usize> {
     flattened: usize,
 }
 
 impl<const W: usize, const H: usize> BoardIndex::<W, H> {
-    fn from_xy (x: usize, y: usize) -> Self {
+    pub const fn from_xy (x: usize, y: usize) -> Self {
         BoardIndex::<W, H>{flattened: x + W * y}
     }
 
-    fn to_xy(self) -> (usize, usize) {
+    pub const fn to_xy(self) -> (usize, usize) {
         (self.flattened % W, self.flattened / W)
     }
 
-    fn get_neighbouring(&self) -> impl Iterator<Item = BoardIndex::<W, H>> {
+    pub fn get_neighbouring(&self) -> impl Iterator<Item = BoardIndex::<W, H>> {
         let (x, y) = self.to_xy();
 
         [ // usize::MAX is assumed to be much larger than W and H.
@@ -45,20 +44,16 @@ impl<const W: usize, const H: usize> fmt::Display for BoardIndex::<W, H> {
     }
 }
 
-type Index4x4 = BoardIndex<4, 4>;
-
-struct Board4x4<T>([T; 16]);
+pub type Index4x4 = BoardIndex<4, 4>;
 
 #[derive(Debug)]
-struct BoardFromStrError {}
+pub struct Board4x4<T>([T; 16]);
 
-impl FromStr for Board4x4<char> {
-    type Err = BoardFromStrError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+impl From<&str> for Board4x4<char> {
+    fn from(s: &str) -> Self {
         let chars: Vec<char> = s.chars().collect();
-        let arr: [char; 16] = chars.try_into().map_err(|_| BoardFromStrError {})?;
-        Ok(Board4x4(arr))
+        let arr: [char; 16] = chars.try_into().unwrap();
+        Board4x4(arr)
     }
 }
 
@@ -82,7 +77,7 @@ impl<T: fmt::Display> fmt::Display for Board4x4<T> {
     }
 }
 
-type RuzzleBoard = Board4x4<char>;
+pub type RuzzleBoard = Board4x4<char>;
 
 #[cfg(test)]
 mod tests {
@@ -91,7 +86,7 @@ mod tests {
     #[test]
     fn board_from_string() {
         let alphabet = "abcdefghijklmnop";
-        let board = RuzzleBoard::from_str(alphabet).unwrap();
+        let board = RuzzleBoard::from(alphabet);
         let mut idxs = (0..=15).map(|n| Index4x4 {flattened: n});
         assert_eq!(board[idxs.next().unwrap()], 'a');
         assert_eq!(board[idxs.next().unwrap()], 'b');
