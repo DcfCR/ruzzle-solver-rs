@@ -7,15 +7,20 @@ pub struct BoardIndex<const W: usize, const H: usize> {
 }
 
 impl<const W: usize, const H: usize> BoardIndex::<W, H> {
+
+    pub fn all_indices_within_bounds() -> impl Iterator<Item = Self> { 
+        (0.. W*H).map(|n| Self{flattened: n})
+    }
+
     pub const fn from_xy (x: usize, y: usize) -> Self {
-        BoardIndex::<W, H>{flattened: x + W * y}
+        Self{flattened: x + W * y}
     }
 
     pub const fn to_xy(self) -> (usize, usize) {
         (self.flattened % W, self.flattened / W)
     }
 
-    pub fn get_neighbouring(&self) -> impl Iterator<Item = BoardIndex::<W, H>> {
+    pub fn get_neighbouring(&self) -> impl Iterator<Item = Self> { 
         let (x, y) = self.to_xy();
 
         [ // usize::MAX is assumed to be much larger than W and H.
@@ -32,7 +37,7 @@ impl<const W: usize, const H: usize> BoardIndex::<W, H> {
         ]
         .into_iter()
         .filter( move |&(neighbour_x, neighbour_y)| neighbour_x < W && neighbour_y < H )
-        .map(|(nx, ny)| BoardIndex::<W, H>::from_xy(nx, ny))
+        .map(|(nx, ny)| Self::from_xy(nx, ny))
     }
 }
 
@@ -46,8 +51,30 @@ impl<const W: usize, const H: usize> fmt::Display for BoardIndex::<W, H> {
 
 pub type Index4x4 = BoardIndex<4, 4>;
 
-#[derive(Debug)]
-pub struct Board4x4<T>([T; 16]);
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Board4x4<T>([T; 16]); 
+// If const generic expressions were supported in Rust as of
+// I would implement a generic Board class with const param-
+// eters W and H (To match the BoardIndex<W,H>), and set the 
+// size of the array to W*H. Unfortunately, Rust does not 
+// allow this at the time of writing (2025-12-21). It exists
+// in nightly builds, so it might be coming.
+
+impl<T: Copy> Board4x4<T> {
+    pub fn mut_mask(&mut self, mask: &Board4x4::<bool>, null_value: T) {
+        self.0 = std::array::from_fn(|idx| if mask[idx] {self[idx]} else {null_value});
+    }
+
+    pub fn masked(&self, mask: &Board4x4::<bool>, null_value: T) -> Board4x4::<T> {
+        Board4x4(std::array::from_fn(|idx| if mask[idx] {self[idx].clone()} else {null_value}))
+    }
+
+    pub fn with_at(&self, value: T, idx: Index4x4)  -> Self {
+        let mut arr = self.0.clone();
+        arr[idx.flattened] = value;
+        Board4x4::<T>(arr)
+    }
+}
 
 impl From<&str> for Board4x4<char> {
     fn from(s: &str) -> Self {
@@ -57,11 +84,30 @@ impl From<&str> for Board4x4<char> {
     }
 }
 
+impl From<u16> for Board4x4<bool> {
+    fn from(u: u16) -> Self {
+        // Bit order: most significant bit  => top left
+        //            least significant bit => bottom right
+        let arr: [bool; 16] = std::array::from_fn(|n| ((u >> (15-n)) & 1) != 0);
+        Board4x4(arr)
+    }
+}
+
 impl<T> Index<Index4x4> for Board4x4<T> {
+    // 2D ("Grid") indexing.
     type Output = T;
 
     fn index(&self, idx: Index4x4) -> &Self::Output {
         &self.0[idx.flattened]
+    }
+}
+
+impl<T> Index<usize> for Board4x4<T> {
+    // 1D ("Flat") indexing.
+    type Output = T;
+
+    fn index(&self, idx: usize) -> &Self::Output {
+        &self.0[idx]
     }
 }
 
@@ -78,6 +124,7 @@ impl<T: fmt::Display> fmt::Display for Board4x4<T> {
 }
 
 pub type RuzzleBoard = Board4x4<char>;
+pub type BoardMask = Board4x4<bool>;
 
 #[cfg(test)]
 mod tests {
