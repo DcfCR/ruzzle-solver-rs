@@ -1,47 +1,49 @@
-use std::ops::Index;
 use std::fmt;
+use std::ops::Index;
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct BoardIndex<const W: usize, const H: usize> {
     flattened: usize,
 }
 
-impl<const W: usize, const H: usize> BoardIndex::<W, H> {
-
-    pub fn all_indices_within_bounds() -> impl Iterator<Item = Self> { 
-        (0.. W*H).map(|n| Self{flattened: n})
+impl<const W: usize, const H: usize> BoardIndex<W, H> {
+    pub fn all_indices_within_bounds() -> impl Iterator<Item = Self> {
+        (0..W * H).map(|n| Self { flattened: n })
     }
 
-    pub const fn from_xy (x: usize, y: usize) -> Self {
-        Self{flattened: x + W * y}
+    pub const fn from_xy(x: usize, y: usize) -> Self {
+        Self {
+            flattened: x + W * y,
+        }
     }
 
     pub const fn to_xy(self) -> (usize, usize) {
         (self.flattened % W, self.flattened / W)
     }
 
-    pub fn get_neighbouring(&self) -> impl Iterator<Item = Self> { 
+    pub fn get_neighbouring(&self) -> impl Iterator<Item = Self> {
         let (x, y) = self.to_xy();
 
-        [ // usize::MAX is assumed to be much larger than W and H.
-          // This means we can assume that wrapping_sub will always produce
-          // results either (correctly) within the board's bounds or very far beyond... 
-          (x.wrapping_sub(1), y.wrapping_sub(1)),   // 1 diagram: |1|2|3|
-          (x,                 y.wrapping_sub(1)),   // 2          |4|¤|5|
-          (x.wrapping_add(1), y.wrapping_sub(1)),   // 3          |6|7|8|
-          (x.wrapping_sub(1),                 y),   // 4
-          (x.wrapping_add(1),                 y),   // 5
-          (x.wrapping_sub(1), y.wrapping_add(1)),   // 6
-          (x,                 y.wrapping_add(1)),   // 7
-          (x.wrapping_add(1), y.wrapping_add(1))    // 8
+        [
+            // usize::MAX is assumed to be much larger than W and H.
+            // This means we can assume that wrapping_sub will always produce
+            // results either (correctly) within the board's bounds or very far beyond...
+            (x.wrapping_sub(1), y.wrapping_sub(1)), // 1 diagram: |1|2|3|
+            (x, y.wrapping_sub(1)),                 // 2          |4|¤|5|
+            (x.wrapping_add(1), y.wrapping_sub(1)), // 3          |6|7|8|
+            (x.wrapping_sub(1), y),                 // 4
+            (x.wrapping_add(1), y),                 // 5
+            (x.wrapping_sub(1), y.wrapping_add(1)), // 6
+            (x, y.wrapping_add(1)),                 // 7
+            (x.wrapping_add(1), y.wrapping_add(1)), // 8
         ]
         .into_iter()
-        .filter( move |&(neighbour_x, neighbour_y)| neighbour_x < W && neighbour_y < H )
+        .filter(move |&(neighbour_x, neighbour_y)| neighbour_x < W && neighbour_y < H)
         .map(|(nx, ny)| Self::from_xy(nx, ny))
     }
 }
 
-impl<const W: usize, const H: usize> fmt::Display for BoardIndex::<W, H> {
+impl<const W: usize, const H: usize> fmt::Display for BoardIndex<W, H> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let (x, y) = self.to_xy();
         write!(f, "BoardIndex::<{}, {}> ({}, {})", W, H, x, y)?;
@@ -51,25 +53,17 @@ impl<const W: usize, const H: usize> fmt::Display for BoardIndex::<W, H> {
 
 pub type Index4x4 = BoardIndex<4, 4>;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Board4x4<T>([T; 16]); 
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub struct Board4x4<T>([T; 16]);
 // If const generic expressions were supported in Rust as of
 // I would implement a generic Board class with const param-
-// eters W and H (To match the BoardIndex<W,H>), and set the 
-// size of the array to W*H. Unfortunately, Rust does not 
+// eters W and H (To match the BoardIndex<W,H>), and set the
+// size of the array to W*H. Unfortunately, Rust does not
 // allow this at the time of writing (2025-12-21). It exists
 // in nightly builds, so it might be coming.
 
 impl<T: Copy> Board4x4<T> {
-    pub fn mut_mask(&mut self, mask: &Board4x4::<bool>, null_value: T) {
-        self.0 = std::array::from_fn(|idx| if mask[idx] {self[idx]} else {null_value});
-    }
-
-    pub fn masked(&self, mask: &Board4x4::<bool>, null_value: T) -> Board4x4::<T> {
-        Board4x4(std::array::from_fn(|idx| if mask[idx] {self[idx].clone()} else {null_value}))
-    }
-
-    pub fn with_at(&self, value: T, idx: Index4x4)  -> Self {
+    pub fn with_at(&self, value: T, idx: Index4x4) -> Self {
         let mut arr = self.0.clone();
         arr[idx.flattened] = value;
         Board4x4::<T>(arr)
@@ -88,7 +82,7 @@ impl From<u16> for Board4x4<bool> {
     fn from(u: u16) -> Self {
         // Bit order: most significant bit  => top left
         //            least significant bit => bottom right
-        let arr: [bool; 16] = std::array::from_fn(|n| ((u >> (15-n)) & 1) != 0);
+        let arr: [bool; 16] = std::array::from_fn(|n| ((u >> (15 - n)) & 1) != 0);
         Board4x4(arr)
     }
 }
@@ -134,7 +128,7 @@ mod tests {
     fn board_from_string() {
         let alphabet = "abcdefghijklmnop";
         let board = RuzzleBoard::from(alphabet);
-        let mut idxs = (0..=15).map(|n| Index4x4 {flattened: n});
+        let mut idxs = (0..=15).map(|n| Index4x4 { flattened: n });
         assert_eq!(board[idxs.next().unwrap()], 'a');
         assert_eq!(board[idxs.next().unwrap()], 'b');
         assert_eq!(board[idxs.next().unwrap()], 'c');
@@ -157,22 +151,54 @@ mod tests {
     fn get_neighbouring() {
         let middle = BoardIndex::<3, 3>::from_xy(1, 1);
         let mut mid_neighbours = middle.get_neighbouring();
-        assert_eq!(mid_neighbours.next(), Some(BoardIndex::<3, 3>::from_xy(0, 0)));
-        assert_eq!(mid_neighbours.next(), Some(BoardIndex::<3, 3>::from_xy(1, 0)));
-        assert_eq!(mid_neighbours.next(), Some(BoardIndex::<3, 3>::from_xy(2, 0)));
-        assert_eq!(mid_neighbours.next(), Some(BoardIndex::<3, 3>::from_xy(0, 1)));
-        assert_eq!(mid_neighbours.next(), Some(BoardIndex::<3, 3>::from_xy(2, 1)));
-        assert_eq!(mid_neighbours.next(), Some(BoardIndex::<3, 3>::from_xy(0, 2)));
-        assert_eq!(mid_neighbours.next(), Some(BoardIndex::<3, 3>::from_xy(1, 2)));
-        assert_eq!(mid_neighbours.next(), Some(BoardIndex::<3, 3>::from_xy(2, 2)));
-        assert_eq!(mid_neighbours.next(), None); 
+        assert_eq!(
+            mid_neighbours.next(),
+            Some(BoardIndex::<3, 3>::from_xy(0, 0))
+        );
+        assert_eq!(
+            mid_neighbours.next(),
+            Some(BoardIndex::<3, 3>::from_xy(1, 0))
+        );
+        assert_eq!(
+            mid_neighbours.next(),
+            Some(BoardIndex::<3, 3>::from_xy(2, 0))
+        );
+        assert_eq!(
+            mid_neighbours.next(),
+            Some(BoardIndex::<3, 3>::from_xy(0, 1))
+        );
+        assert_eq!(
+            mid_neighbours.next(),
+            Some(BoardIndex::<3, 3>::from_xy(2, 1))
+        );
+        assert_eq!(
+            mid_neighbours.next(),
+            Some(BoardIndex::<3, 3>::from_xy(0, 2))
+        );
+        assert_eq!(
+            mid_neighbours.next(),
+            Some(BoardIndex::<3, 3>::from_xy(1, 2))
+        );
+        assert_eq!(
+            mid_neighbours.next(),
+            Some(BoardIndex::<3, 3>::from_xy(2, 2))
+        );
+        assert_eq!(mid_neighbours.next(), None);
 
         let top_left = BoardIndex::<3, 3>::from_xy(0, 0);
         let mut tl_neighbours = top_left.get_neighbouring();
-        assert_eq!(tl_neighbours.next(), Some(BoardIndex::<3, 3>::from_xy(1, 0)));
-        assert_eq!(tl_neighbours.next(), Some(BoardIndex::<3, 3>::from_xy(0, 1)));
-        assert_eq!(tl_neighbours.next(), Some(BoardIndex::<3, 3>::from_xy(1, 1)));
+        assert_eq!(
+            tl_neighbours.next(),
+            Some(BoardIndex::<3, 3>::from_xy(1, 0))
+        );
+        assert_eq!(
+            tl_neighbours.next(),
+            Some(BoardIndex::<3, 3>::from_xy(0, 1))
+        );
+        assert_eq!(
+            tl_neighbours.next(),
+            Some(BoardIndex::<3, 3>::from_xy(1, 1))
+        );
         assert_eq!(tl_neighbours.next(), None);
-
     }
 }
